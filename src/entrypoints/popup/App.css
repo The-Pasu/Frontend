@@ -1,0 +1,304 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 기본 컨테이너 */
+.app-container {
+  width: 360px;
+  background: #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+
+/* 헤더 */
+.app-header {
+  background-color: #0066cc;
+  color: #ffffff;
+  padding: 16px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 스텝 공통 스타일 */
+.step {
+  padding: 20px;
+  animation: fadeIn 0.3s ease-out;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.step-content h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  text-align: center;
+}
+
+.step-content p {
+  font-size: 14px;
+  color: #666666;
+  margin: 0;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.step-description {
+  font-size: 13px;
+  color: #999999;
+  text-align: center;
+}
+
+/* 권한 요청 스텝 */
+.permission-step {
+  background-color: #f9f9f9;
+}
+
+.permission-step .step-content {
+  align-items: center;
+  gap: 20px;
+}
+
+.permission-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+/* 거부됨 스텝 */
+.denied-step {
+  background-color: #fff5f5;
+}
+
+/* 카테고리 스텝 */
+.category-step {
+  background-color: #f9f9f9;
+}
+
+/* 대화 영역 스텝 */
+.conversation-step {
+  background-color: #f9f9f9;
+}
+
+/* 목적 입력 스텝 */
+.purpose-step {
+  background-color: #f9f9f9;
+}
+
+/* 분석 중 스텝 */
+.analyzing-step {
+  background-color: #f9f9f9;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.analyzing-step .step-content {
+  gap: 20px;
+  text-align: center;
+}
+
+/* 버튼 그룹 */
+.button-group {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.button-group .btn {
+  flex: 1;
+}
+
+.button-group.center {
+  justify-content: center;
+}
+
+.button-group.single {
+  justify-content: center;
+}
+
+.button-group.single .btn {
+  flex: 0 1 100%;
+  max-width: 200px;
+}
+
+/* 버튼 스타일 */
+.btn {
+  height: 44px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0 16px;
+}
+
+.btn-primary {
+  background-color: #0066cc;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #0052a3;
+}
+
+.btn-primary:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.btn-yes {
+  background-color: #0066cc;
+  color: #ffffff;
+  flex: 1;
+}
+
+.btn-yes:hover {
+  background-color: #0052a3;
+}
+
+.btn-no {
+  background-color: #e8e8e8;
+  color: #333333;
+  border: 1px solid #d0d0d0;
+  flex: 1;
+}
+
+.btn-no:hover {
+  background-color: #d8d8d8;
+}
+
+/* 선택 박스 */
+.select-box {
+  width: 100%;
+  height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.select-box:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+/* 입력 필드 */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.text-input {
+  width: 100%;
+  height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #ffffff;
+  color: #333333;
+  box-sizing: border-box;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.char-count {
+  font-size: 12px;
+  color: #999999;
+  text-align: right;
+  margin-top: -4px;
+}
+
+/* 대화 영역 */
+.conversation-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #f0f0f0;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
+.conversation-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.conversation-item .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666666;
+}
+
+.conversation-item .value {
+  font-size: 13px;
+  color: #999999;
+  font-style: italic;
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 로딩 스피너 */
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e0e0e0;
+  border-top: 4px solid #0066cc;
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: spin 1s linear infinite;
+}
+
+/* 정렬 유틸리티 */
+.text-center {
+  text-align: center;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
