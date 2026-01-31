@@ -1,4 +1,4 @@
-// Instagram DM 메시지 수집기
+// 인스타그램 DM 메시지 수집기
 
 (function() {
     if (!document.body) {
@@ -276,7 +276,7 @@
         const chatContainer = document.querySelector('[role="grid"]') || document.body;
         const containerRect = chatContainer.getBoundingClientRect();
 
-        // A. 텍스트 수집 (div[dir="auto"])
+        // 가. 텍스트 수집 (div[dir="auto"])
         const textNodes = chatContainer.querySelectorAll('div[dir="auto"], span[dir="auto"]');
         
         textNodes.forEach(node => {

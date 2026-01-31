@@ -7,8 +7,13 @@ export default defineConfig({
     name: "MG Extension",
     web_accessible_resources: [
       {
-        resources: ["inject.js"],
-        matches: ["*://*.instagram.com/*", "*://*.web.telegram.org/*", "*://*.danggeun.com/*"]
+        resources: [
+          "inject-init.js",
+          "platforms/instagram.js",
+          "platforms/telegram.js",
+          "utils/common.js"
+        ],
+        matches: ["*://*.instagram.com/*", "*://*.web.telegram.org/*"]
       }
     ]
   },
