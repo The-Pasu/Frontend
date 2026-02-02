@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser";
 import type { PublicPath } from "wxt/browser";
 import type {
   Platform,
@@ -71,6 +72,53 @@ export default defineContentScript({
       console.error('[Extractor] Failed to load common utilities:', error);
     };
     (document.head || document.documentElement).appendChild(commonScript);
+
+    const SOURCE = "dm-collector";
+
+    const buildSelectionLabel = (payload: {
+      type: "text" | "image";
+      content: string;
+    }) => {
+      return payload.type === "image" ? "[이미지]" : payload.content;
+    };
+
+    const applySelection = async (payload: {
+      type: "text" | "image";
+      content: string;
+      sender: string;
+      timestamp: number | null;
+      timestampText: string | null;
+    }) => {
+      const stored = await browser.storage.local.get([
+        "conversationStart",
+        "conversationEnd",
+      ]);
+
+      const label = buildSelectionLabel({
+        type: payload.type,
+        content: payload.content,
+      });
+
+      const updates: Record<string, string> = {};
+      if (!stored.conversationStart) {
+        updates.conversationStart = label;
+      } else {
+        updates.conversationEnd = label;
+      }
+
+      await browser.storage.local.set(updates);
+      await browser.runtime.sendMessage({
+        type: "SELECTION_UPDATED",
+        ...updates,
+      });
+    };
+
+    window.addEventListener("message", (event) => {
+      if (event.source !== window) return;
+      const data = event.data;
+      if (!data || data.source !== SOURCE || data.type !== "MESSAGE_BUBBLE_SELECTED") return;
+      void applySelection(data.payload);
+    });
 
     // 초기화는 public/inject-init.js에서 수행
   },

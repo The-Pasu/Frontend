@@ -110,6 +110,90 @@
       }
     }
 
+    function getImageSrc(img) {
+      var src = img.src;
+      if (img.srcset) {
+        var parts = img.srcset.split(',');
+        src = parts[parts.length - 1].trim().split(' ')[0];
+      }
+      return src;
+    }
+
+    function findSelectableNode(target) {
+      if (!target) return { node: null, type: null };
+
+      if (target.closest) {
+        var directText = target.closest(extractor.config.textNodes);
+        if (directText) return { node: directText, type: 'text' };
+
+        var directImage = target.closest(extractor.config.images);
+        if (directImage) return { node: directImage, type: 'image' };
+      }
+
+      var current = target;
+      var attempts = 0;
+      while (current && attempts < 10) {
+        if (current.querySelector) {
+          var nestedText = current.querySelector(extractor.config.textNodes);
+          if (nestedText) return { node: nestedText, type: 'text' };
+
+          var nestedImage = current.querySelector(extractor.config.images);
+          if (nestedImage) return { node: nestedImage, type: 'image' };
+        }
+        current = current.parentElement;
+        attempts++;
+      }
+
+      return { node: null, type: null };
+    }
+
+    function buildSelectionPayload(node, type) {
+      var timeInfo = extractor.findNearestTime(node);
+      var content = '';
+
+      if (type === 'text') {
+        content = (node.innerText || '').trim() || (node.textContent || '').trim();
+        if (!content) return null;
+      } else {
+        content = getImageSrc(node);
+        if (!content) return null;
+      }
+
+      return {
+        type: type,
+        content: content,
+        sender: extractor.identifySpeaker(node),
+        timestamp: (timeInfo && timeInfo.timestamp) || null,
+        timestampText: (timeInfo && timeInfo.text) || null
+      };
+    }
+
+    function handleBubbleClick(target) {
+      if (!target || !extractor || !extractor.config) return;
+
+      var found = findSelectableNode(target);
+      if (!found.node || !found.type) return;
+
+      var node = found.node;
+      var type = found.type;
+      var payload = buildSelectionPayload(node, type);
+      if (!payload) return;
+
+      window.postMessage({
+        source: 'dm-collector',
+        type: 'MESSAGE_BUBBLE_SELECTED',
+        payload: payload
+      }, '*');
+    }
+
+    document.addEventListener('click', function (event) {
+      try {
+        handleBubbleClick(event.target);
+      } catch (error) {
+        console.error('[Bubble Click Error]', error);
+      }
+    }, true);
+
     var scannerInterval = setInterval(scanScreen, 500);
 
     window.showData = function () {

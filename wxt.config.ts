@@ -4,7 +4,8 @@ export default defineConfig({
   srcDir: "src",
   modules: ["@wxt-dev/module-react"],
   manifest: {
-    name: "MG Extension",
+    name: "Side-ai",
+    permissions: ["storage"],
     web_accessible_resources: [
       {
         resources: [
