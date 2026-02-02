@@ -138,7 +138,12 @@ function App() {
   };
 
   const handleConversationNext = () => {
-    setStep("purpose");
+    const isStartSelected = formData.conversationStart !== "시작 메세지를 선택해주세요";
+    const isEndSelected = formData.conversationEnd !== "마지막 메세지를 선택해주세요";
+    
+    if (isStartSelected && isEndSelected) {
+      setStep("purpose");
+    }
   };
 
   const handleClearConversationStart = () => {
@@ -321,7 +326,14 @@ function App() {
               <button className="btn btn-no" onClick={handleConversationBack}>
                 이전
               </button>
-              <button className="btn btn-primary" onClick={handleConversationNext}>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleConversationNext}
+                disabled={
+                  formData.conversationStart === "시작 메세지를 선택해주세요" ||
+                  formData.conversationEnd === "마지막 메세지를 선택해주세요"
+                }
+              >
                 다음
               </button>
             </div>
