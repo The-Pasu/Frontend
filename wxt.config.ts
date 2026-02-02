@@ -5,6 +5,7 @@ export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   manifest: {
     name: "MG Extension",
+    permissions: ["storage"],
     web_accessible_resources: [
       {
         resources: [
