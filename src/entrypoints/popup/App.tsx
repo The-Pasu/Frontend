@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { browser } from "wxt/browser";
 import "./App.css";
 
-type Step = "permission" | "denied" | "category" | "mode" | "conversation" | "purpose" | "analyzing" | "monitoring";
+type Step = "permission" | "denied" | "category" | "mode" | "conversation" | "purpose" | "analyzing" | "result" | "monitoring";
 
 interface FormData {
   hasPermission: boolean;
@@ -19,6 +19,32 @@ interface SelectionUpdatedMessage {
   conversationEnd?: string;
 }
 
+interface Message {
+  type: "TEXT";
+  content: string;
+  sender: string;
+  timestamp: string;
+}
+
+interface AnalyzeRequest {
+  uuid: string;
+  messages: Message[];
+  sourceUrl: string;
+}
+
+interface ReasonItem {
+  source: string;
+  quote: string;
+}
+
+interface AnalysisResult {
+  riskLevel: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "SAFE";
+  summary: string;
+  type: string;
+  reason: ReasonItem[];
+  nextQuestion: string;
+}
+
 function App() {
   const [step, setStep] = useState<Step>("permission");
   const [formData, setFormData] = useState<FormData>({
@@ -29,7 +55,64 @@ function App() {
     conversationEnd: "마지막 메세지를 선택해주세요",
     purpose: "",
   });
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const pinnedInitRef = useRef(false);
+
+  // 콘텐츠에서 시간 제거하는 헬퍼 함수
+  const cleanContent = (content: string): string => {
+    // 다양한 시간 형식 제거
+    // 1. \n\n이후의 시간 (예: "메세지\n\n10:11 PM")
+    // 2. \n이후의 시간 (예: "메세지\n22:10")
+    // 3. 마지막 줄의 시간만
+    let cleaned = content
+      // 아이콘 글리프(프라이빗 유즈 영역) 제거
+      .replace(/[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]+/gu, '')
+      // 아이콘 + 시간 조합 제거 (예: "\n\n10:10 PM")
+      .replace(/\n\s*[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]+\s*\n?\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?$/gu, '')
+      .replace(/\n\n\d{1,2}:\d{2}\s*(AM|PM|am|pm)?$/i, '') // \n\n10:11 PM 형식
+      .replace(/\n\d{1,2}:\d{2}\s*(AM|PM|am|pm)?$/i, '') // \n10:11 PM 형식
+      .replace(/\n(\d{1,2}):(\d{2})$/, '') // \n22:10 형식
+      .trim();
+    
+    // 맨 끝에 남은 빈 줄 제거
+    cleaned = cleaned.replace(/\n+$/, '').trim();
+    
+    return cleaned;
+  };
+
+  // API 분석 함수
+  const analyzeMessages = async (
+    messages: Message[],
+    sourceUrl: string
+  ) => {
+    const uuid = crypto.randomUUID();
+    const payload: AnalyzeRequest = {
+      uuid,
+      messages,
+      sourceUrl,
+    };
+
+    try {
+      const response = await fetch("http://localhost:8080/api/detection/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API 오류: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("분석 결과:", result);
+      return result;
+    } catch (error) {
+      console.error("API 호출 실패:", error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     if (!pinnedInitRef.current) {
@@ -175,7 +258,40 @@ function App() {
   const handleAnalyzeStart = () => {
     if (formData.purpose.trim()) {
       setStep("analyzing");
-      // 분석 애니메이션이 진행된 후 다른 작업을 수행할 수 있음
+
+      // 예시 메시지 데이터 (실제로는 content script에서 받아온 메시지 사용)
+      const exampleMessages: Message[] = [
+        {
+          type: "TEXT",
+          content: formData.conversationStart,
+          sender: "other",
+          timestamp: new Date().toISOString(),
+        },
+        {
+          type: "TEXT",
+          content: formData.conversationEnd,
+          sender: "other",
+          timestamp: new Date().toISOString(),
+        },
+      ];
+
+      // sourceUrl에 플랫폼 정보 포함 (카테고리 기반)
+      const platformPrefix = formData.category === "job" ? "telegram" : "instagram";
+      const sourceUrl = `${platformPrefix}://message/${window.location.href}`;
+
+      // API 호출
+      analyzeMessages(exampleMessages, sourceUrl)
+        .then((result) => {
+          console.log("분석 완료:", result);
+          // 결과 저장 및 결과 화면으로 이동
+          setAnalysisResult(result);
+          setStep("result");
+        })
+        .catch((error) => {
+          console.error("분석 실패:", error);
+          // 에러 처리
+          setStep("mode");
+        });
     }
   };
 
@@ -226,7 +342,6 @@ function App() {
               <option value="">카테고리 선택</option>
               <option value="job">구직</option>
               <option value="trade">중고거래</option>
-              <option value="romance">로맨스스캠</option>
               <option value="investment">재태크</option>
               <option value="sidebusiness">부업</option>
             </select>
@@ -292,7 +407,7 @@ function App() {
               <div className="conversation-item">
                 <span className="label">선택된 시작 메세지:</span>
                 <div className="value-chip">
-                  <span className="value">{formData.conversationStart}</span>
+                  <span className="value">{cleanContent(formData.conversationStart)}</span>
                   {formData.conversationStart !== "시작 메세지를 선택해주세요" && (
                     <button
                       type="button"
@@ -308,7 +423,7 @@ function App() {
               <div className="conversation-item">
                 <span className="label">선택된 마지막 메세지:</span>
                 <div className="value-chip">
-                  <span className="value">{formData.conversationEnd}</span>
+                  <span className="value">{cleanContent(formData.conversationEnd)}</span>
                   {formData.conversationEnd !== "마지막 메세지를 선택해주세요" && (
                     <button
                       type="button"
@@ -381,6 +496,82 @@ function App() {
             <div className="spinner"></div>
             <h2>분석 중입니다</h2>
             <p>대화 내용을 분석하고 있습니다. 잠시만 기다려주세요...</p>
+          </div>
+        </div>
+      )}
+
+      {/* 분석 결과 화면 */}
+      {step === "result" && analysisResult && (
+        <div className="step result-step">
+          <div className="step-content">
+            <div className="result-header">
+              <h2>분석 완료</h2>
+              <div className={`risk-badge risk-${analysisResult.riskLevel.toLowerCase()}`}>
+                <div className="risk-level-text">{analysisResult.riskLevel}</div>
+              </div>
+            </div>
+
+            {/* 요약 */}
+            <div className="result-section">
+              <div className="section-header">
+                <h3>📋 요약</h3>
+              </div>
+              <p className="summary-text">{analysisResult.summary}</p>
+            </div>
+
+            {/* 타입 */}
+            <div className="result-section">
+              <div className="section-header">
+                <h3>🏷️ 피싱 유형</h3>
+              </div>
+              <div className="type-box">{analysisResult.type}</div>
+            </div>
+
+            {/* 이유 */}
+            <div className="result-section">
+              <div className="section-header">
+                <h3>⚠️ 위험 신호</h3>
+              </div>
+              <div className="reasons-list">
+                {analysisResult.reason.map((item, index) => (
+                  <div key={index} className="reason-item">
+                    <div className="reason-header">
+                      <span className="reason-number">{index + 1}</span>
+                      <span className="reason-source">{item.source}</span>
+                    </div>
+                    <div className="reason-quote">"{item.quote}"</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 주의사항 */}
+            <div className="result-section">
+              <div className="section-header">
+                <h3>💡 권고사항</h3>
+              </div>
+              <div className="recommendation-box">
+                <p className="next-question">{analysisResult.nextQuestion}</p>
+              </div>
+            </div>
+
+            <div className="button-group">
+              <button 
+                className="btn btn-no"
+                onClick={() => {
+                  setStep("mode");
+                  setAnalysisResult(null);
+                }}
+              >
+                다시 분석
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={() => setStep("monitoring")}
+              >
+                모니터링 시작
+              </button>
+            </div>
           </div>
         </div>
       )}

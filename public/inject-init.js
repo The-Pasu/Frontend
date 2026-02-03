@@ -39,12 +39,19 @@
           extractor.preScan(chatContainer);
         }
         
-        var textNodes = chatContainer.querySelectorAll(extractor.config.textNodes);
+        var textNodes = extractor.getMessageNodes
+          ? extractor.getMessageNodes(chatContainer)
+          : chatContainer.querySelectorAll(extractor.config.textNodes);
 
         textNodes.forEach(function (node) {
           var element = node;
-          var text = (element.innerText || '').trim() || (element.textContent || '').trim();
-          if (!text || !window.MessageExtractor.isElementInViewport(node)) return;
+          var text = extractor.getMessageText
+            ? extractor.getMessageText(element)
+            : (element.innerText || '').trim() || (element.textContent || '').trim();
+          var viewportTarget = extractor.getMessageTextElement
+            ? extractor.getMessageTextElement(element)
+            : element;
+          if (!text || !window.MessageExtractor.isElementInViewport(viewportTarget)) return;
           if (extractor.shouldFilterOut(text)) return;
 
           var normalized = window.MessageExtractor.normalizeContent(text);
@@ -79,6 +86,14 @@
           }
 
           window.COLLECTED_DB.set(contentKey, messageData);
+
+          console.log('[Collected Message]', {
+            type: messageData.type,
+            sender: messageData.sender,
+            content: messageData.content,
+            timestamp: messageData.timestamp,
+            timestampText: messageData.timestampText
+          });
 
           window.PROCESSED_CONTENTS.add(contentKey);
         });
@@ -119,6 +134,14 @@
 
           window.COLLECTED_DB.set(contentKey, imageData);
 
+          console.log('[Collected Message]', {
+            type: imageData.type,
+            sender: imageData.sender,
+            content: imageData.content,
+            timestamp: imageData.timestamp,
+            timestampText: imageData.timestampText
+          });
+
           window.PROCESSED_CONTENTS.add(contentKey);
         });
 
@@ -149,23 +172,46 @@
     function findSelectableNode(target) {
       if (!target) return { node: null, type: null };
 
+      // 1단계: 클릭한 요소 자체가 텍스트/이미지인지 확인
       if (target.closest) {
         var directText = target.closest(extractor.config.textNodes);
-        if (directText) return { node: directText, type: 'text' };
+        if (directText && directText.innerText?.trim()) {
+          return { node: directText, type: 'text' };
+        }
 
         var directImage = target.closest(extractor.config.images);
-        if (directImage) return { node: directImage, type: 'image' };
+        if (directImage) {
+          return { node: directImage, type: 'image' };
+        }
       }
 
+      // 2단계: 부모 요소들을 순회하면서 메시지 버블 찾기
       var current = target;
       var attempts = 0;
-      while (current && attempts < 10) {
+      var maxAttempts = 15;
+
+      while (current && attempts < maxAttempts) {
+        // 텍스트 먼저 찾기 (텍스트 우선)
         if (current.querySelector) {
           var nestedText = current.querySelector(extractor.config.textNodes);
-          if (nestedText) return { node: nestedText, type: 'text' };
+          if (nestedText && (nestedText.innerText?.trim() || nestedText.textContent?.trim())) {
+            return { node: nestedText, type: 'text' };
+          }
+        }
 
+        current = current.parentElement;
+        attempts++;
+      }
+
+      // 3단계: 이미지 찾기 (최후의 수단)
+      current = target;
+      attempts = 0;
+      while (current && attempts < maxAttempts) {
+        if (current.querySelector) {
           var nestedImage = current.querySelector(extractor.config.images);
-          if (nestedImage) return { node: nestedImage, type: 'image' };
+          if (nestedImage) {
+            return { node: nestedImage, type: 'image' };
+          }
         }
         current = current.parentElement;
         attempts++;
@@ -187,9 +233,11 @@
           var processed = extractor.processContent(content, node);
           content = processed.content;
         }
-      } else {
+      } else if (type === 'image') {
         content = getImageSrc(node);
         if (!content) return null;
+      } else {
+        return null;
       }
 
       return {

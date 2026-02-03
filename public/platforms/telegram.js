@@ -6,9 +6,9 @@ window.MessageExtractor.Telegram = {
     platform: 'telegram',
     
     config: {
-        chatContainer: '.scrollable-y',
-        textNodes: '.message-text, .text-content',
-        images: 'img[class*="message"], img[class*="photo"]'
+        chatContainer: '.scrollable-y, .bubble-group-container, [class*="scroller"]',
+        textNodes: '.message .text-content, .message .message-text, .bubble .text-content, .bubble .message-text, .text-content, .message-text, .message, .bubble',
+        images: 'img[class*="message"], img[class*="photo"], img[class*="media"]'
     },
     
     state: {
@@ -73,7 +73,6 @@ window.MessageExtractor.Telegram = {
             const month = String(yesterday.getMonth() + 1).padStart(2, '0');
             const day = String(yesterday.getDate()).padStart(2, '0');
             
-            console.log('[날짜 파싱 성공 - Yesterday]', trimmed, '→', { year, month, day });
             this.state.lastKnownDate = { year, month, day };
             return { year, month, day };
         }
@@ -169,7 +168,42 @@ window.MessageExtractor.Telegram = {
             return null; // 날짜 구분선은 메시지가 아님
         }
         
-        return null;
+        if (!text) return null;
+
+        // 아이콘 글리프 제거 및 공백 정리
+        const cleaned = text
+            .replace(/[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]+/gu, '')
+            .trim();
+
+        // 시간 패턴 (예: 22:10, 10:10 PM)
+        const timePattern = /^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/;
+        const match = cleaned.match(timePattern);
+        if (!match) return null;
+
+        let hour = parseInt(match[1], 10);
+        const minute = match[2];
+        const meridiem = match[3];
+
+        if (meridiem) {
+            const mer = meridiem.toLowerCase();
+            if (mer === 'pm' && hour !== 12) hour += 12;
+            if (mer === 'am' && hour === 12) hour = 0;
+        }
+
+        const date = this.state.lastKnownDate || {
+            year: new Date().getFullYear().toString(),
+            month: String(new Date().getMonth() + 1).padStart(2, '0'),
+            day: String(new Date().getDate()).padStart(2, '0')
+        };
+
+        const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+        const dateStr = `${date.year}-${date.month}-${date.day}T${time}:00`;
+        const timestamp = new Date(dateStr).getTime();
+
+        return {
+            timestamp: timestamp,
+            text: `${date.year.slice(2)}. ${date.month}. ${date.day}. ${time}`
+        };
     },
     
     shouldFilterOut: function(text) {
@@ -178,20 +212,78 @@ window.MessageExtractor.Telegram = {
         
         // 기본 필터링
         if (trimmed.length === 1 && trimmed !== '.') return true;
+
+        // 시간만 있는 텍스트는 필터링
+        if (/^\d{1,2}:\d{2}\s*(AM|PM|am|pm)?$/.test(trimmed)) return true;
         
         // 날짜 구분선 필터링
         if (this.parseDateSeparator(trimmed)) return true;
         
         return false;
     },
+
+    // 텔레그램 전용: 메시지 텍스트 요소 찾기
+    getMessageTextElement: function(node) {
+        if (!node || !node.querySelector) return node;
+        return node.querySelector(
+            '.text-content, .message-text, .message-text-content, .text-entity, [dir="auto"]'
+        ) || node;
+    },
+
+    // 텔레그램 전용: 메시지 텍스트 추출 (노드가 컨테이너여도 동작)
+    getMessageText: function(node) {
+        if (!node) return '';
+
+        const textEl = this.getMessageTextElement(node);
+        let text = (textEl && (textEl.innerText || textEl.textContent)) || '';
+        text = text.trim();
+
+        if (!text && node.querySelectorAll) {
+            const parts = [];
+            const candidates = node.querySelectorAll(
+                '.text-content, .message-text, .message-text-content, .text-entity, [dir="auto"], span, div'
+            );
+            candidates.forEach((el) => {
+                const t = (el.innerText || el.textContent || '').trim();
+                if (!t) return;
+                // 시간/아이콘만 있는 조각은 제외
+                if (/^\d{1,2}:\d{2}\s*(AM|PM|am|pm)?$/.test(t)) return;
+                parts.push(t);
+            });
+            text = parts.join(' ').trim();
+        }
+
+        if (!text) return '';
+
+        // 아이콘 글리프 제거
+        text = text.replace(/[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]+/gu, '').trim();
+
+        return text;
+    },
+
+    // 텔레그램 전용: 메시지 버블 노드 수집
+    getMessageNodes: function(chatContainer) {
+        if (!chatContainer || !chatContainer.querySelectorAll) return [];
+        return chatContainer.querySelectorAll(
+            '[data-message-id], .message, .bubble, .message-list-item, .bubble-content, .message-bubble'
+        );
+    },
     
     identifySpeaker: function(element) {
         let current = element;
         let depth = 0;
         
-        while (current && depth < 10) {
-            if (current.classList && (current.classList.contains('message') || current.classList.contains('is-out'))) {
-                return current.classList.contains('is-out') ? "나 (Me)" : "상대방 (Other)";
+        while (current && depth < 15) {
+            const className = typeof current.className === 'string' ? current.className : '';
+            if (/\b(is-out|message-out|bubble-out|out)\b/.test(className)) {
+                return "나 (Me)";
+            }
+            if (/\b(is-in|message-in|bubble-in|in)\b/.test(className)) {
+                return "상대방 (Other)";
+            }
+            if (current.classList && current.classList.contains('message')) {
+                // message 요소 기본은 상대방으로 간주
+                return "상대방 (Other)";
             }
             current = current.parentElement;
             depth++;
